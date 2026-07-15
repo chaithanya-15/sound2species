@@ -1,26 +1,16 @@
-# Requirements for Farmyard Sound Event Detection System
-# Core audio processing
+# audio processing
 librosa>=0.10.0
 soundfile>=0.12.0
 numpy>=1.24.0
 scipy>=1.10.0
 
-# Deep learning framework
+# transfer-learning backbone
 tensorflow>=2.13.0
 tensorflow-hub>=0.13.0
 
-# Visualization
+# visualization
 matplotlib>=3.7.0
-seaborn>=0.12.0
 
-# Optional: For evaluation metrics (mentioned in the project description)
-# sed_eval or dcase_util would need to be installed separately
-# pip install sed_eval
-# pip install dcase_util
-
-# Optional: For data augmentation (mentioned in the project description)
-# audiomentations>=0.14.0
-
-# For Jupyter notebooks (if used for development/experimentation)
-# jupyter>=1.0.0
-# notebook>=6.5.0
+# collar-based event evaluation
+sed_eval>=0.2.1
+dcase_util>=0.2.20
