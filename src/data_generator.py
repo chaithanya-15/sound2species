@@ -127,63 +127,6 @@ def _load(path: str, sr: int = SAMPLE_RATE) -> np.ndarray:
     return audio.astype(np.float32)
 
 
-class TrainingClipBuilder:
-    """Augmented single-label clips for training, generated per split only."""
-
-    def __init__(self, splits: Dict[str, Dict[str, List[str]]], sr: int = SAMPLE_RATE, seed: int = 42):
-        self.splits = splits
-        self.sr = sr
-        self.rng = random.Random(seed)
-        np.random.seed(seed)
-
-    def _augment(self, seg: np.ndarray) -> np.ndarray:
-        seg = seg * self.rng.uniform(0.6, 1.0)
-        if self.rng.random() > 0.3:
-            seg = seg + np.random.randn(len(seg)).astype(np.float32) * self.rng.uniform(0.001, 0.01)
-        if self.rng.random() > 0.5:
-            fade = min(int(0.1 * self.sr), len(seg) // 4)
-            if fade > 0:
-                seg[:fade] *= np.linspace(0, 1, fade)
-                seg[-fade:] *= np.linspace(1, 0, fade)
-        return seg.astype(np.float32)
-
-    def build_split(self, split: str, per_class: int, duration_range=(3.0, 8.0)) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Return (X_audio_list, Y) for a split.
-
-        X is a list of variable-length waveforms, Y is an (N, num_classes)
-        one-hot matrix. Audio is later turned into embeddings by train.py.
-        """
-        class_names = CLASS_NAMES
-        idx = {c: i for i, c in enumerate(class_names)}
-        audios, labels = [], []
-
-        for class_name, files in self.splits[split].items():
-            if not files:
-                continue
-            sources = [_load(f, self.sr) for f in files]
-            sources = [a for a in sources if a.size]
-            if not sources:
-                continue
-            for _ in range(per_class):
-                dur = self.rng.uniform(*duration_range)
-                target = int(dur * self.sr)
-                src = self.rng.choice(sources)
-                if len(src) >= target:
-                    start = self.rng.randint(0, len(src) - target)
-                    seg = src[start:start + target].copy()
-                else:
-                    seg = np.zeros(target, dtype=np.float32)
-                    seg[:len(src)] = src
-                seg = self._augment(seg)
-                vec = np.zeros(len(class_names), dtype=np.float32)
-                vec[idx[class_name]] = 1.0
-                audios.append(seg)
-                labels.append(vec)
-
-        return audios, np.array(labels, dtype=np.float32)
-
-
 class MixtureBuilder:
     """Continuous recordings with overlapping events and ground-truth labels."""
 
