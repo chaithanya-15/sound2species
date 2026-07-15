@@ -34,6 +34,19 @@ class FarmyardSEDPipeline:
         self.thresholds = dict(DEFAULT_THRESHOLDS)
         self.min_duration = dict(DEFAULT_MIN_DURATION)
         self.max_gap = dict(DEFAULT_MAX_GAP)
+        self._load_tuned_params(model_dir)
+
+    def _load_tuned_params(self, model_dir: str):
+        """Override defaults with tuned values from postprocess.json if it exists."""
+        path = Path(model_dir) / 'postprocess.json'
+        if not path.exists():
+            return
+        with open(path) as f:
+            params = json.load(f)
+        self.thresholds.update(params.get('thresholds', {}))
+        self.min_duration.update(params.get('min_duration', {}))
+        self.max_gap.update(params.get('max_gap', {}))
+        print(f"loaded tuned post-processing from {path}")
 
     def _load_audio(self, audio_path: str) -> np.ndarray:
         """Load any-length mono 16 kHz audio. No fixed-duration truncation."""
