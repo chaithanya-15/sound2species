@@ -111,6 +111,11 @@ class FarmyardSEDPipeline:
         events.sort(key=lambda e: e['event_start'])
         return events
 
+    def detect(self, audio_path: str) -> List[Dict]:
+        """Events only, no visualization. Used for evaluation and tuning."""
+        probs = self._frame_probs(self._load_audio(audio_path))
+        return self.postprocess(probs)
+
     def process_file(self, audio_path: str) -> Tuple[List[Dict], "object"]:
         waveform = self._load_audio(audio_path)
         probs = self._frame_probs(waveform)
