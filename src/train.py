@@ -57,7 +57,7 @@ def _pad_batch(seqs, tgts, animal_weight):
 
 
 def train(source_dir: str, out_dir: str, train_recordings: int = 60,
-          val_recordings: int = 16, duration: float = 30.0, epochs: int = 60, seed: int = 42):
+          val_recordings: int = 16, duration: float = 45.0, epochs: int = 60, seed: int = 42):
     catalog = scan_classes(source_dir)
     splits = source_level_split(catalog, seed=seed)
 
@@ -100,7 +100,7 @@ def main():
     parser.add_argument('--out_dir', default='./models')
     parser.add_argument('--train_recordings', type=int, default=60)
     parser.add_argument('--val_recordings', type=int, default=16)
-    parser.add_argument('--duration', type=float, default=30.0)
+    parser.add_argument('--duration', type=float, default=45.0)
     parser.add_argument('--epochs', type=int, default=60)
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
