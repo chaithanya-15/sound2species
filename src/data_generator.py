@@ -209,8 +209,14 @@ class MixtureBuilder:
         peak = np.max(np.abs(bed))
         return (bed / peak * 0.3).astype(np.float32) if peak > 0 else bed
 
-    def build_recording(self, split: str, duration: float = 30.0, n_events=(3, 8)):
-        """Return (mixture_waveform, events) with events carrying start/end/label."""
+    def build_recording(self, split: str, duration: float = 45.0, n_events=(2, 6)):
+        """
+        Return (mixture_waveform, events) with events carrying start/end/label.
+
+        Recordings are long with few, short events so background dominates the
+        timeline, matching a real farm recording where most of the time nothing
+        is vocalizing.
+        """
         total = int(duration * self.sr)
         mixture = self._background_bed(split, total)
         events = []
@@ -222,7 +228,14 @@ class MixtureBuilder:
             if not files:
                 continue
             clip = _load(self.rng.choice(files), self.sr)
-            if clip.size == 0 or clip.size >= total:
+            if clip.size == 0:
+                continue
+            # trim to a short 1-4 s segment so events are brief and varied
+            seg = int(self.rng.uniform(1.0, 4.0) * self.sr)
+            if clip.size > seg:
+                off = self.rng.randint(0, clip.size - seg)
+                clip = clip[off:off + seg]
+            if clip.size >= total:
                 continue
 
             start = self.rng.randint(0, total - clip.size)
@@ -247,7 +260,7 @@ class MixtureBuilder:
         events.sort(key=lambda e: e['event_start'])
         return mixture.astype(np.float32), events
 
-    def build_eval_set(self, split: str, out_dir: str, n_recordings: int = 10, duration: float = 30.0):
+    def build_eval_set(self, split: str, out_dir: str, n_recordings: int = 10, duration: float = 45.0):
         """Write eval recordings plus a ground-truth JSON per recording."""
         import soundfile as sf
         out_dir = Path(out_dir)
