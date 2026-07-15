@@ -22,7 +22,38 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from .yamnet import CLASS_NAMES, SAMPLE_RATE, BACKGROUND_CLASS
+from .yamnet import (
+    CLASS_NAMES, SAMPLE_RATE, BACKGROUND_CLASS,
+    FRAME_HOP_SECONDS, FRAME_WINDOW_SECONDS,
+)
+
+
+def events_to_frame_targets(events, num_frames: int,
+                            hop: float = FRAME_HOP_SECONDS,
+                            window: float = FRAME_WINDOW_SECONDS):
+    """
+    Turn ground-truth events into a (num_frames, num_classes) multi-label target.
+
+    A frame is positive for a class if any event of that class overlaps the
+    frame's time span [i*hop, i*hop + window]. The background class ('others')
+    is positive on frames where no animal is active, so the head gets an
+    explicit "say nothing" signal.
+    """
+    idx = {c: i for i, c in enumerate(CLASS_NAMES)}
+    bg = idx[BACKGROUND_CLASS]
+    targets = np.zeros((num_frames, len(CLASS_NAMES)), dtype=np.float32)
+
+    for i in range(num_frames):
+        f_start = i * hop
+        f_end = f_start + window
+        active = False
+        for ev in events:
+            if ev['animal'] in idx and ev['event_end'] > f_start and ev['event_start'] < f_end:
+                targets[i, idx[ev['animal']]] = 1.0
+                active = True
+        if not active:
+            targets[i, bg] = 1.0
+    return targets
 
 
 def source_id(filename: str) -> str:
