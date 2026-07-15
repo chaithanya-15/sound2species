@@ -43,7 +43,7 @@ def _class_f1(ref_by_class, est_by_class, label):
     return 0.0 if f is None or np.isnan(f) else float(f)
 
 
-def tune(source_dir: str, model_dir: str, val_recordings: int = 12, duration: float = 45.0, seed: int = 42):
+def tune(source_dir: str, model_dir: str, val_recordings: int = 30, duration: float = 45.0, seed: int = 42):
     catalog = scan_classes(source_dir)
     splits = source_level_split(catalog, seed=seed)
     builder = MixtureBuilder(splits, seed=seed + 1)
@@ -92,7 +92,7 @@ def main():
     parser = argparse.ArgumentParser(description='Tune per-class post-processing on val')
     parser.add_argument('--source_dir', default='./dataset/dataset')
     parser.add_argument('--model_dir', default='./models')
-    parser.add_argument('--val_recordings', type=int, default=12)
+    parser.add_argument('--val_recordings', type=int, default=30)
     parser.add_argument('--duration', type=float, default=45.0)
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
