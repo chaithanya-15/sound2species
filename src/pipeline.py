@@ -68,7 +68,9 @@ class FarmyardSEDPipeline:
 
         if mask.sum() == 0:
             return []
-        smoothed = signal.medfilt(mask.astype(int), kernel_size=5)
+        # kernel must be odd and no larger than the signal (short clips)
+        k = min(5, mask.size if mask.size % 2 == 1 else mask.size - 1)
+        smoothed = signal.medfilt(mask.astype(int), kernel_size=max(1, k))
 
         max_gap_frames = int(round(self.max_gap[class_name] / self.hop))
         min_dur_frames = max(1, int(round(self.min_duration[class_name] / self.hop)))
