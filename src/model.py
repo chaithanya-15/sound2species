@@ -39,13 +39,33 @@ def build_classifier(num_classes: int = len(CLASS_NAMES), learning_rate: float =
     return model
 
 
-def build_temporal_classifier(num_classes: int = len(CLASS_NAMES), learning_rate: float = 1e-3):
+def _weighted_bce(pos_weights):
+    """Binary cross-entropy with a per-class positive weight, reduced over classes.
+
+    Rare classes (cat, cow) get a larger positive weight so they are not drowned
+    out by background and the common animals. Returns per-timestep loss so the
+    training-time sample-weight mask can still zero out padded frames.
+    """
+    import tensorflow as tf
+    pw = tf.constant(pos_weights, dtype=tf.float32)
+
+    def loss(y_true, y_pred):
+        y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0 - 1e-7)
+        bce = -(pw * y_true * tf.math.log(y_pred) + (1.0 - y_true) * tf.math.log(1.0 - y_pred))
+        return tf.reduce_mean(bce, axis=-1)
+
+    return loss
+
+
+def build_temporal_classifier(num_classes: int = len(CLASS_NAMES),
+                              learning_rate: float = 1e-3, pos_weights=None):
     """
     Sequence head: (T, 1024) embeddings -> (T, num_classes) probabilities.
 
     A bidirectional GRU gives each frame context from its neighbours, which
     smooths the per-frame predictions and cuts the fragmentation that wrecks
     event boundaries. Padded timesteps (all-zero embeddings) are masked out.
+    Pass pos_weights (one per class) to up-weight rare classes in the loss.
     """
     from tensorflow.keras import layers, models, optimizers
     import tensorflow as tf
@@ -59,9 +79,10 @@ def build_temporal_classifier(num_classes: int = len(CLASS_NAMES), learning_rate
         layers.TimeDistributed(layers.Dense(num_classes, activation='sigmoid'), name='output'),
     ], name='yamnet_temporal_classifier')
 
+    loss = _weighted_bce(pos_weights) if pos_weights is not None else 'binary_crossentropy'
     model.compile(
         optimizer=optimizers.Adam(learning_rate=learning_rate),
-        loss='binary_crossentropy',
+        loss=loss,
         weighted_metrics=[tf.keras.metrics.AUC(name='auc')],
     )
     return model
@@ -81,7 +102,8 @@ def load_classifier(model_dir: str):
     import tensorflow as tf
 
     model_dir = Path(model_dir)
-    model = tf.keras.models.load_model(model_dir / 'classifier.keras')
+    # compile=False: inference never needs the (custom, weighted) training loss
+    model = tf.keras.models.load_model(model_dir / 'classifier.keras', compile=False)
     names_path = model_dir / 'class_names.json'
     if names_path.exists():
         with open(names_path) as f:
