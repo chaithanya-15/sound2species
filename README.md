@@ -1,26 +1,33 @@
 # sound2species
 
-Sound event detection for farmyard audio. Given a wav recording, the system
-reports when each animal vocalizes as a list of timed events and draws the
-detections over the waveform and spectrogram.
+Sound event detection for farmyard audio. You give it a wav recording and it
+reports when each animal vocalizes, as a list of timed events, and draws those
+events over the waveform and spectrogram.
 
-Five animal classes are detected (dog, cat, sheep, cow, rooster) plus a sixth
-`others` class for background. Background is modelled explicitly but never
+It detects five animals: dog, cat, sheep, cow, and rooster. A sixth class,
+`others`, covers background sound. Background is a trained class, but it is never
 reported as an event.
 
-## Approach
+## How it works
 
-- **Backbone**: frozen YAMNet as a feature extractor. The seed dataset is small,
-  so we ride on YAMNet's AudioSet pretraining and only train a small head.
-- **Head**: a dense classifier with per-class sigmoid outputs (multi-label), so
-  two animals active at once can both fire. Trained with binary cross-entropy.
-- **Inference**: run YAMNet over the whole recording at its native 0.48 s frame
-  rate, predict per frame, then post-process into events.
-- **Post-processing** (per class): threshold, median smoothing, gap merging,
-  minimum-duration filtering. Parameters are per class because a short dog bark
-  and a long cow moo behave differently.
-- **Evaluation**: collar-based event metrics via `sed_eval` with a 0.5 s
-  onset/offset tolerance, matching the brief's +/-500 ms margin.
+YAMNet does the feature extraction and stays frozen. The seed dataset is small,
+so the only thing trained is a small classifier head on top of YAMNet's
+embeddings, which already carry a lot from AudioSet.
+
+The head has one sigmoid output per class instead of a softmax, so two animals
+that overlap in time can both fire. It trains with binary cross-entropy.
+
+At inference the recording goes through YAMNet at its native 0.48 s frame rate
+and the head predicts every frame. Those per-frame probabilities become events
+through post-processing that runs per class: a probability threshold, median
+smoothing, merging events separated by a short gap, and dropping events shorter
+than a minimum duration. The settings differ by class, since a short dog bark and
+a long cow moo do not behave the same way.
+
+Evaluation uses `sed_eval` event metrics with a 0.5 s onset/offset collar, which
+is the +/-500 ms tolerance the brief asks for. Frame-level accuracy is not the
+headline number: background dominates the timeline, so that number looks high
+even when the events are wrong. Event F1 is the one that matters.
 
 ## Layout
 
@@ -35,29 +42,34 @@ src/
 Farmyard_SED_Colab.ipynb   end-to-end walkthrough (Colab)
 ```
 
-The dataset, generated data, trained models, and outputs are not tracked in git.
-Put the seed clips under `dataset/dataset/<class>/*.wav`.
+The dataset, generated data, trained models, and outputs stay out of git. Put the
+seed clips under `dataset/dataset/<class>/*.wav`.
 
-## Usage
+## Install and run
+
+Local development uses uv:
 
 ```bash
-pip install -r requirements.txt
+uv sync
 
 # split at the source-recording level and build annotated eval mixtures
-python -m src.data_generator --source_dir ./dataset/dataset --out_dir ./data
+uv run python -m src.data_generator --source_dir ./dataset/dataset --out_dir ./data
 
 # train the classifier head
-python -m src.train --source_dir ./dataset/dataset --out_dir ./models
+uv run python -m src.train --source_dir ./dataset/dataset --out_dir ./models
 
 # score against the collar metric
-python -m src.evaluate --eval_dir ./data/eval --model_dir ./models
+uv run python -m src.evaluate --eval_dir ./data/eval --model_dir ./models
 
 # run detection on one recording
-python -m src.pipeline path/to/recording.wav --model_dir ./models
+uv run python -m src.pipeline path/to/recording.wav --model_dir ./models
 ```
 
+`requirements.txt` exists for the Colab notebook, which installs with pip. Keep it
+in step with `pyproject.toml` when dependencies change.
+
 Each run writes `<name>_detections.json` and `<name>_detections.png` to
-`outputs/`. JSON follows the brief's schema:
+`outputs/`. The JSON follows the brief's schema:
 
 ```json
 [
@@ -68,8 +80,8 @@ Each run writes `<name>_detections.json` and `<name>_detections.png` to
 
 ## Offline use
 
-YAMNet loads from TF Hub by default. For a run with no network (for example a
-live demo), download the SavedModel once and point `YAMNET_MODEL_DIR` at it:
+By default YAMNet loads from TF Hub. For a run with no network, such as a live
+demo, download the SavedModel once and point `YAMNET_MODEL_DIR` at it:
 
 ```bash
 export YAMNET_MODEL_DIR=/path/to/yamnet_savedmodel
@@ -77,11 +89,13 @@ export YAMNET_MODEL_DIR=/path/to/yamnet_savedmodel
 
 ## Known limitations
 
-- The head is trained on single-label clips, so overlap is handled at inference
-  (independent per-class sigmoids) rather than learned from overlapping training
-  audio. The annotated eval mixtures do contain overlap, so the collar metric
-  still measures polyphonic behaviour honestly.
-- YAMNet's 0.48 s hop caps boundary resolution near the 0.5 s collar. Events are
-  reported to that resolution.
-- The source-level split assumes ESC-50 style filenames for the take grouping;
-  other sources fall back to per-file splitting.
+The head trains on single-label clips, so overlap is resolved at inference by the
+independent per-class sigmoids rather than learned from overlapping training
+audio. The eval mixtures do contain overlap, so the collar metric still measures
+polyphonic behaviour honestly.
+
+YAMNet's 0.48 s hop sets the floor on boundary resolution, which sits right at the
+0.5 s collar. Events are reported to that resolution.
+
+The source-level split reads ESC-50 style filenames to group takes from the same
+recording. Files from other sources fall back to a per-file split.
