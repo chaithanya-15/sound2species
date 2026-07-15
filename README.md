@@ -113,11 +113,23 @@ export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")
 ## Where it stands, and where it fails
 
 On a 50-recording test set the strict onset+offset macro F1 is about 17 percent,
-and every class scores. Dog and sheep are the strong classes (around 30 percent).
-Cat is the weakest: it is not missed but over-fired, so its problem is precision,
-not recall. That is the clearest failure mode, and it points at data rather than
-post-processing, since cat has few distinct sources and is easy to confuse with
-other short, high-pitched sounds.
+and every class scores:
+
+| class   | strict event F1 | frame precision | frame recall |
+|---------|-----------------|------------------|---------------|
+| dog     | 30%              | 0.91             | 0.45          |
+| sheep   | 28%              | 0.88             | 0.63          |
+| cow     | 13%              | 0.59             | 0.31          |
+| rooster | 8%               | 0.64             | 0.29          |
+| cat     | 4%               | 0.24             | 0.26          |
+| others  | n/a (background) | 0.86             | 0.96          |
+
+Dog and sheep are the strong classes. Cat is the weakest: its frame precision
+(0.24) is far below its recall (0.26), so it is not missed but over-fired. That
+is the clearest failure mode, and it points at data rather than post-processing,
+since cat has few distinct sources and is easy to confuse with other short,
+high-pitched sounds. Cow and rooster sit in between: reasonable frame precision
+but weak recall, so they are more often missed than falsely triggered.
 
 Two structural limits are worth naming. YAMNet's 0.48 s hop sets the floor on
 boundary resolution, which sits right at the 0.5 s collar, so strict offset
