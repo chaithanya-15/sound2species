@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .yamnet import load_yamnet, frame_embeddings, CLASS_NAMES, BACKGROUND_CLASS
+from .yamnet import load_yamnet, frame_embeddings, CLASS_NAMES
 from .model import build_temporal_classifier, save_classifier
 from .data_generator import (
     scan_classes, source_level_split, MixtureBuilder, events_to_frame_targets,

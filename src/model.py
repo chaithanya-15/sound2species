@@ -12,33 +12,6 @@ from pathlib import Path
 from .yamnet import CLASS_NAMES
 
 
-def build_classifier(num_classes: int = len(CLASS_NAMES), learning_rate: float = 1e-3):
-    """Small dense head: 1024-d embedding -> per-class sigmoid probabilities."""
-    from tensorflow.keras import layers, models, optimizers
-    import tensorflow as tf
-
-    model = models.Sequential([
-        layers.Input(shape=(1024,), name='embedding_input'),
-        layers.Dense(256, activation='relu', name='dense_1'),
-        layers.Dropout(0.3),
-        layers.Dense(128, activation='relu', name='dense_2'),
-        layers.Dropout(0.3),
-        layers.Dense(num_classes, activation='sigmoid', name='output'),
-    ], name='yamnet_transfer_classifier')
-
-    model.compile(
-        optimizer=optimizers.Adam(learning_rate=learning_rate),
-        loss='binary_crossentropy',
-        metrics=[
-            'binary_accuracy',
-            tf.keras.metrics.Precision(name='precision'),
-            tf.keras.metrics.Recall(name='recall'),
-            tf.keras.metrics.AUC(name='auc'),
-        ],
-    )
-    return model
-
-
 def _weighted_bce(pos_weights):
     """Binary cross-entropy with a per-class positive weight, reduced over classes.
 

@@ -62,15 +62,3 @@ def frame_embeddings(yamnet, waveform: np.ndarray) -> np.ndarray:
     waveform = normalize_waveform(waveform)
     _, embeddings, _ = yamnet(tf.constant(waveform, dtype=tf.float32))
     return embeddings.numpy()
-
-
-def clip_embedding(yamnet, waveform: np.ndarray) -> np.ndarray:
-    """
-    Return a single mean-pooled embedding of shape (1024,) for a whole clip.
-
-    Used at training: each labelled clip becomes one embedding vector.
-    """
-    emb = frame_embeddings(yamnet, waveform)
-    if emb.shape[0] == 0:
-        return np.zeros(1024, dtype=np.float32)
-    return emb.mean(axis=0).astype(np.float32)
