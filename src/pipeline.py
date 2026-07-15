@@ -23,7 +23,8 @@ from .model import load_classifier
 # Durations are in seconds; background ('others') is never reported.
 DEFAULT_THRESHOLDS = {'dog': 0.5, 'cat': 0.5, 'sheep': 0.5, 'cow': 0.5, 'rooster': 0.5}
 DEFAULT_MIN_DURATION = {'dog': 0.3, 'cat': 0.3, 'sheep': 0.5, 'cow': 0.5, 'rooster': 0.3}
-DEFAULT_MAX_GAP = {'dog': 0.5, 'cat': 0.5, 'sheep': 0.8, 'cow': 0.8, 'rooster': 0.5}
+# larger gaps merge fragmented detections of one continuous vocalization
+DEFAULT_MAX_GAP = {'dog': 0.8, 'cat': 0.8, 'sheep': 1.0, 'cow': 1.0, 'rooster': 0.8}
 
 
 class FarmyardSEDPipeline:
@@ -58,7 +59,8 @@ class FarmyardSEDPipeline:
         emb = frame_embeddings(self.yamnet, waveform)      # (num_frames, 1024)
         if emb.shape[0] == 0:
             return np.zeros((0, len(self.class_names)), dtype=np.float32)
-        return self.model.predict(emb, verbose=0)          # (num_frames, num_classes)
+        # batch dim works for both the per-frame and temporal (sequence) heads
+        return self.model.predict(emb[None, ...], verbose=0)[0]   # (num_frames, num_classes)
 
     def _events_for_class(self, mask: np.ndarray, class_name: str, probs: np.ndarray) -> List[Dict]:
         """Smooth -> merge short gaps -> drop short events -> emit event dicts."""
@@ -66,7 +68,7 @@ class FarmyardSEDPipeline:
 
         if mask.sum() == 0:
             return []
-        smoothed = signal.medfilt(mask.astype(int), kernel_size=3)
+        smoothed = signal.medfilt(mask.astype(int), kernel_size=5)
 
         max_gap_frames = int(round(self.max_gap[class_name] / self.hop))
         min_dur_frames = max(1, int(round(self.min_duration[class_name] / self.hop)))
