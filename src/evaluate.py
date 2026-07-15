@@ -48,7 +48,7 @@ def evaluate(eval_dir: str, model_dir: str):
             continue
         with open(gt_path) as f:
             gt = json.load(f)
-        pred, _ = pipeline.process_file(wav)
+        pred = pipeline.detect(wav)
 
         ref = _to_sed_eval_list(gt)
         est = _to_sed_eval_list(pred)
