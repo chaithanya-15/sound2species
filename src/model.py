@@ -39,6 +39,34 @@ def build_classifier(num_classes: int = len(CLASS_NAMES), learning_rate: float =
     return model
 
 
+def build_temporal_classifier(num_classes: int = len(CLASS_NAMES), learning_rate: float = 1e-3):
+    """
+    Sequence head: (T, 1024) embeddings -> (T, num_classes) probabilities.
+
+    A bidirectional GRU gives each frame context from its neighbours, which
+    smooths the per-frame predictions and cuts the fragmentation that wrecks
+    event boundaries. Padded timesteps (all-zero embeddings) are masked out.
+    """
+    from tensorflow.keras import layers, models, optimizers
+    import tensorflow as tf
+
+    model = models.Sequential([
+        layers.Input(shape=(None, 1024), name='embedding_sequence'),
+        layers.Masking(mask_value=0.0),
+        layers.Bidirectional(layers.GRU(64, return_sequences=True)),
+        layers.Dropout(0.3),
+        layers.TimeDistributed(layers.Dense(64, activation='relu')),
+        layers.TimeDistributed(layers.Dense(num_classes, activation='sigmoid'), name='output'),
+    ], name='yamnet_temporal_classifier')
+
+    model.compile(
+        optimizer=optimizers.Adam(learning_rate=learning_rate),
+        loss='binary_crossentropy',
+        weighted_metrics=[tf.keras.metrics.AUC(name='auc')],
+    )
+    return model
+
+
 def save_classifier(model, out_dir: str, class_names=CLASS_NAMES):
     """Save the head plus the class-name order it was trained with."""
     out_dir = Path(out_dir)
